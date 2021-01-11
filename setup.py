@@ -10,7 +10,10 @@ os.chdir('./beam_cxx')
 os.makedirs('build', exist_ok=True)
 os.chdir('build')
 os.system('cmake ../ -DCMAKE_INSTALL_PREFIX=..')
-os.system('make install')
+errno = os.system('make install')
+if errno:
+    print("Error !!!!")
+    exit(errno)
 
 os.chdir(rootpath)
 

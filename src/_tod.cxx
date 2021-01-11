@@ -46,7 +46,7 @@ static PyObject *func(PyObject *self, PyObject *args)
   s1 = arcmin2rad(fwhm2sigma(s1));
   s2 = arcmin2rad(fwhm2sigma(s2));
 
-  Beam b1({g1,x1,y1,s1,p1,c1}), b2({g2, x2, y2, s2, p2, c2});
+  Beam b1({g1,x1,y1,s1,p1,c1}, false), b2({g2, x2, y2, s2, p2, c2}, false);
 
   // Data Access
   // Map
