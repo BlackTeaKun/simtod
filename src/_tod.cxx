@@ -1,5 +1,7 @@
 #define PY_SSIZE_T_CLEAN
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#define NO_IMPORT
+#define PY_ARRAY_UNIQUE_SYMBOL MyAPI
 
 #include <Python.h>
 #include <iostream>
@@ -21,8 +23,9 @@ inline double fwhm2sigma(double _fwhm){
   return res;
 }
 
-static PyObject *func(PyObject *self, PyObject *args)
+PyObject *simtod(PyObject *self, PyObject *args)
 {
+  //import_array();
   PyObject *beam_parameters;
   PyObject *map_arr;
   PyObject *theta, *phi, *psi;
@@ -70,26 +73,4 @@ static PyObject *func(PyObject *self, PyObject *args)
   PyArrayObject* temp = (PyArrayObject*) tod_array;
   PyArray_ENABLEFLAGS(temp, NPY_ARRAY_OWNDATA);
   return tod_array;
-}
-
-
-
-
-static PyMethodDef MyMethods[] = {
-    {"simtod", func, METH_VARARGS, NULL},
-    {NULL, NULL, 0, NULL}};
-
-static PyModuleDef funcmodule = {
-    PyModuleDef_HEAD_INIT,
-    "simtod",
-    NULL,
-    -1,
-    MyMethods};
-
-// The Whole Module
-PyMODINIT_FUNC PyInit__simtod(void)
-{
-    import_array();
-    PyObject *mymodule = PyModule_Create(&funcmodule);
-    return mymodule;
 }
