@@ -10,6 +10,7 @@
 
 PyMethodDef MyMethods[] = {
     {"simtod", simtod, METH_VARARGS, "TOD simulation. (beam, maps, theta, phi, psi)"},
+    {"templatetod", deprojtod, METH_VARARGS, "TOD simulation. (beam, maps, theta, phi, psi)"},
     {nullptr, nullptr, 0, nullptr}};
 
 PyModuleDef simtodmodule = {

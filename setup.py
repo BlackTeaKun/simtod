@@ -22,7 +22,7 @@ library_dirs = [os.path.join(rootpath, 'beam_cxx/lib')]
 module1 = Extension(
     '_simtod',
     language='c++',
-    sources = ['./src/_tod.cxx', './src/simtodmodule.cxx',
+    sources = ['./src/modulefuncs.cxx', './src/simtodmodule.cxx',
                './src/PyMapMaking.cxx'],
     include_dirs=[numpy.get_include(), os.path.join(rootpath, 'beam_cxx/include')],
     library_dirs=library_dirs,
