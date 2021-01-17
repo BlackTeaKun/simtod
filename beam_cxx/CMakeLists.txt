@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.6)
 project(convolve)
 
 set (CMAKE_CXX_FLAGS "-std=c++17 -fopenmp -march=native -O2 -DEIGEN_USE_BLAS" CACHE STRING "Set C++ Compiler Flags" FORCE)
-set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 find_package(PkgConfig REQUIRED)
 pkg_search_module(HEALPIX REQUIRED healpix_cxx)
 pkg_search_module(OPENBLAS REQUIRED openblas)
