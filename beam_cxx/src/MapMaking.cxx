@@ -17,8 +17,8 @@ MapMaking::MapMaking(int _nside)
     Tmap.setZero();
     hitmap.setZero();
 
-    x_xt = std::vector<Eigen::Matrix2d>(npix);
-    xt_y = std::vector<Eigen::Vector2d>(npix);
+    x_xt = std::vector<Eigen::Matrix2d, Eigen::aligned_allocator<Eigen::Matrix2d>>(npix);
+    xt_y = std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>>(npix);
     for(int i=0; i<npix; ++i){
         x_xt[i].setZero();
         xt_y[i].setZero();
@@ -61,6 +61,7 @@ int MapMaking::add_Scan(const Scan_data &scan)
     // For Polarization
     using std::cos;
     using std::sin;
+#pragma omp parallel for schedule(dynamic, 1)
     for(int i = 0; i < nsample; ++i)
     {
       double cur_psi = scan.psi[i];

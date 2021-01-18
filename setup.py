@@ -27,7 +27,7 @@ module1 = Extension(
     include_dirs=[numpy.get_include(), os.path.join(rootpath, 'beam_cxx/include')],
     library_dirs=library_dirs,
     libraries=['convolve', 'mapmaking'],
-    extra_compile_args=['-std=c++17', '-march=native'],
+    extra_compile_args=['-std=c++11', '-march=native'],
     extra_link_args=['-Wl,-rpath,' + i for i in library_dirs]
 )
 

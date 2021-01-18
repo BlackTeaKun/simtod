@@ -2,6 +2,7 @@
 
 //#include "healpix_base.h"
 #include "Eigen/Dense"
+#include "Eigen/StdVector"
 #include <vector>
 
 template<class _type>
@@ -46,7 +47,7 @@ private:
   _eigen_type     Tmap;
 
   //least square b=(X@X.T)^{-1}@X.T@y
-  std::vector<Eigen::Matrix2d> x_xt;
-  std::vector<Eigen::Vector2d> xt_y;
+  std::vector<Eigen::Matrix2d, Eigen::aligned_allocator<Eigen::Matrix2d>> x_xt;
+  std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>> xt_y;
   T_Healpix_Base<int> *hb;
 };
