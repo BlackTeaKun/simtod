@@ -73,18 +73,27 @@ MapMaking_add_Scan(PyMapMaking *self, PyObject* args)
     double *tod1, *tod2, *theta, *phi, *psi;
     tod1 = tod2 = theta = phi = psi = nullptr;
     int nsample = PyArray_Size(p_theta);
-    theta = TODOUBLEP(PyArray_GETPTR1(OBJ2ARR(p_theta), 0));
-    phi   = TODOUBLEP(PyArray_GETPTR1(OBJ2ARR(p_phi), 0));
+    PyObject *new_theta = nullptr, *new_phi = nullptr, *new_psi = nullptr;
+    PyObject *new_tods = nullptr;
+    
+    new_theta   = PyArray_FROM_OTF(p_theta  , NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+    new_phi     = PyArray_FROM_OTF(p_phi    , NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+    theta = TODOUBLEP(PyArray_GETPTR1(OBJ2ARR(new_theta), 0));
+    phi   = TODOUBLEP(PyArray_GETPTR1(OBJ2ARR(new_phi), 0));
     if(p_tod != Py_None){
       tod1  = TODOUBLEP(PyArray_GETPTR2(OBJ2ARR(p_tod), 0, 0));
       tod2  = TODOUBLEP(PyArray_GETPTR2(OBJ2ARR(p_tod), 1, 0));
     }
     if(p_psi != Py_None){
-      psi   = TODOUBLEP(PyArray_GETPTR1(OBJ2ARR(p_psi), 0));
+      new_psi     = PyArray_FROM_OTF(p_phi    , NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+      psi   = TODOUBLEP(PyArray_GETPTR1(OBJ2ARR(new_psi), 0));
     }
     Scan_data scan(nsample, tod1, tod2, theta, phi, psi);
     self->mapmaking->add_Scan(scan);
 
+    Py_XDECREF(new_theta);
+    Py_XDECREF(new_phi);
+    Py_XDECREF(new_psi);
     Py_RETURN_NONE;
 }
 
@@ -132,47 +141,47 @@ PyMethodDef MapMaking_methods[] = {
 // For C++ the order is importrant
 PyTypeObject MapMakingType = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name = "_simtod.MapMaking",
+     "_simtod.MapMaking", //.tp_name =
 
-    .tp_basicsize = sizeof(PyMapMaking),
-    .tp_itemsize = 0,
+     sizeof(PyMapMaking), //.tp_basicsize =
+     0, //.tp_itemsize =
 
-    .tp_dealloc = (destructor) MapMaking_dealloc,
-    .tp_print =0,
-    .tp_getattr = 0,
-    .tp_setattr = 0,
-    .tp_as_async= 0,
+     (destructor) MapMaking_dealloc, //.tp_dealloc =
+     0, //.tp_print =
+     0, //.tp_getattr =
+     0, //.tp_setattr =
+     0, //.tp_as_async=
 
-    .tp_repr = 0,
+     0, //.tp_repr =
 
-    .tp_as_number = 0,
-    .tp_as_sequence = 0,
-    .tp_as_mapping = 0,
+     0, //.tp_as_number =
+     0, //.tp_as_sequence =
+     0, //.tp_as_mapping =
 
-    .tp_hash = 0,
-    .tp_call = 0,
-    .tp_str  = 0,
-    .tp_getattro = 0,
-    .tp_setattro = 0,
-    .tp_as_buffer = 0,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
-    .tp_doc = "MapMaking objects",
-    .tp_traverse = 0,
-    .tp_clear = 0,
-    .tp_richcompare = 0,
-    .tp_weaklistoffset = 0,
-    .tp_iter = 0,
-    .tp_iternext = 0,
-    .tp_methods = MapMaking_methods,
-    .tp_members = MapMaking_members,
-    .tp_getset = 0,
-    .tp_base = 0,
-    .tp_dict = 0,
-    .tp_descr_get = 0,
-    .tp_descr_set = 0,
-    .tp_dictoffset = 0,
-    .tp_init = (initproc) MapMaking_init,
-    .tp_alloc = 0,
-    .tp_new = MapMaking_new,
+     0, //.tp_hash =
+     0, //.tp_call =
+     0, //.tp_str  =
+     0, //.tp_getattro =
+     0, //.tp_setattro =
+     0, //.tp_as_buffer =
+     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, //.tp_flags =
+     "MapMaking objects", //.tp_doc =
+     0, //.tp_traverse =
+     0, //.tp_clear =
+     0, //.tp_richcompare =
+     0, //.tp_weaklistoffset =
+     0, //.tp_iter =
+     0, //.tp_iternext =
+     MapMaking_methods, //.tp_methods =
+     MapMaking_members, //.tp_members =
+     0, //.tp_getset =
+     0, //.tp_base =
+     0, //.tp_dict =
+     0, //.tp_descr_get =
+     0, //.tp_descr_set =
+     0, //.tp_dictoffset =
+     (initproc) MapMaking_init, //.tp_init =
+     0, //.tp_alloc =
+     MapMaking_new, //.tp_new =
 };
 

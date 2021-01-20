@@ -12,28 +12,57 @@
 #include "numpy/arrayobject.h"
 #include "Beam.hpp"
 #include "convolve.hpp"
-void test_speed();
+#include "helper.hpp"
 
-inline double arcmin2rad(double _arcmin){
-  double res = _arcmin / 60 * 0.017453292519943295;
-  return res;
-}
-inline double fwhm2sigma(double _fwhm){
-  double res = _fwhm / 2.3548200450309493;
-  return res;
-}
+#define ArrayCheck(o) Py_TYPE(o)==&PyArray_Type
+
+
+void test_speed();
 
 PyObject *simtod(PyObject *self, PyObject *args)
 {
-  //import_array();
+  //PyErr_Format(PyExc_TypeError, "errrrrr");
+  //return nullptr;
   PyObject *beam_parameters;
   PyObject *map_arr;
   PyObject *theta, *phi, *psi;
-  PyArg_ParseTuple(args, "OOOOO", &beam_parameters, &map_arr, &theta, &phi, &psi);
+  bool success = PyArg_ParseTuple(args, "OOOOO", &beam_parameters, &map_arr, &theta, &phi, &psi);
+  if (!success){
+    return nullptr;
+  }
+  bool is_all_npyarray = ArrayCheck(map_arr) && ArrayCheck(theta) && ArrayCheck(phi) && ArrayCheck(psi);
+  if (!is_all_npyarray){
+    PyErr_Format(PyExc_TypeError, "The input map, theta, phi, psi must be numpy.ndarray object.");
+    return nullptr;
+  }
+
+  int ndim_check = PyArray_NDIM((PyArrayObject*)map_arr)*1000 +
+                   PyArray_NDIM((PyArrayObject*)theta)  *100  +
+                   PyArray_NDIM((PyArrayObject*)phi)    *10   +
+                   PyArray_NDIM((PyArrayObject*)psi)    *1;
+  if (ndim_check != 1111){
+    PyErr_Format(PyExc_ValueError, "object too deep for desired array.");
+    return nullptr;
+  }
+  std::vector<int> size_check(3);
+  size_check[0] = PyArray_SIZE((PyArrayObject*)theta);
+  size_check[1] = PyArray_SIZE((PyArrayObject*)phi);
+  size_check[2] = PyArray_SIZE((PyArrayObject*)psi);
+  bool is_same_size = size_check[0] == size_check[1] &&
+                      size_check[1] == size_check[2];
+  if (!is_same_size){
+    PyErr_Format(PyExc_ValueError, "theta, phi, psi should have the same size.");
+    return nullptr;
+  }
 
   // For Beam
   double dg,dx,dy,s,ds,dp,dc;
-  PyArg_ParseTuple(beam_parameters, "ddddddd", &dg, &dx, &dy, &s, &ds, &dp, &dc);
+  // success = PyArg_ParseTuple(beam_parameters, "ddddddd", &dg, &dx, &dy, &s, &ds, &dp, &dc);
+  success = parse_beam_para(beam_parameters, dg, dx, dy, s, ds, dp, dc);
+  if(!success){
+    PyErr_Format(PyExc_TypeError, "missing beam parameter");
+    return nullptr;
+  }
   double g1 = 1+dg/2, g2 = 1-dg/2;
   double x1 = dx/2, x2 = -dx/2;
   double y1 = dy/2, y2 = -dy/2;
@@ -53,14 +82,24 @@ PyObject *simtod(PyObject *self, PyObject *args)
 
   // Data Access
   // Map
-  npy_intp npix = PyArray_Size(map_arr);
-  double *p_map = (double *)PyArray_GETPTR1((PyArrayObject*)map_arr, 0);
+  npy_intp npix = get_map_npix((PyArrayObject*)map_arr);
+  bool is_valid_npix = check_npix(npix);
+  if(!is_valid_npix){
+    PyErr_Format(PyExc_ValueError, "Invalid map data. Bad number of pixels.");
+    return nullptr;
+  }
+  PyObject *new_map_arr = PyArray_FROM_OTF(map_arr, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+  PyObject *new_theta   = PyArray_FROM_OTF(theta  , NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+  PyObject *new_phi     = PyArray_FROM_OTF(phi    , NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+  PyObject *new_psi     = PyArray_FROM_OTF(psi    , NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+
+  double *p_map = (double *)PyArray_GETPTR1((PyArrayObject*)new_map_arr, 0);
 
   // Scan
   npy_intp nsample = PyArray_Size(theta);
-  double *p_theta = (double *)PyArray_GETPTR1((PyArrayObject*)theta, 0);
-  double *p_phi= (double *)PyArray_GETPTR1((PyArrayObject*)phi, 0);
-  double *p_psi = (double *)PyArray_GETPTR1((PyArrayObject*)psi, 0);
+  double *p_theta  = (double *)PyArray_GETPTR1((PyArrayObject*)new_theta , 0);
+  double *p_phi    = (double *)PyArray_GETPTR1((PyArrayObject*)new_phi   , 0);
+  double *p_psi    = (double *)PyArray_GETPTR1((PyArrayObject*)new_psi   , 0);
 
   // Do convolve;
   double *read_out = convolve(b1, b2, npix, p_map, nsample, p_theta, p_phi, p_psi);
@@ -72,6 +111,11 @@ PyObject *simtod(PyObject *self, PyObject *args)
   tod_array = PyArray_SimpleNewFromData(2, ndims, NPY_FLOAT64, (void *)read_out);
   PyArrayObject* temp = (PyArrayObject*) tod_array;
   PyArray_ENABLEFLAGS(temp, NPY_ARRAY_OWNDATA);
+
+  Py_DECREF(new_map_arr);
+  Py_DECREF(new_theta);
+  Py_DECREF(new_phi);
+  Py_DECREF(new_psi);
   return tod_array;
 }
 
@@ -80,11 +124,35 @@ PyObject *deprojtod(PyObject *self, PyObject *args)
   PyObject *beam_parameters;
   PyObject *map_arr;
   PyObject *theta, *phi, *psi;
-  PyArg_ParseTuple(args, "OOOOO", &beam_parameters, &map_arr, &theta, &phi, &psi);
+  bool success = PyArg_ParseTuple(args, "OOOOO", &beam_parameters, &map_arr, &theta, &phi, &psi);
+  if (!success){
+    return nullptr;
+  }
+  bool is_all_npyarray = ArrayCheck(map_arr) && ArrayCheck(theta) && ArrayCheck(phi) && ArrayCheck(psi);
+  if (!is_all_npyarray){
+    PyErr_Format(PyExc_TypeError, "The input map, theta, phi, psi must be numpy.ndarray object.");
+    return nullptr;
+  }
+  int ndim_check = PyArray_NDIM((PyArrayObject*)map_arr)*1000 +
+                   PyArray_NDIM((PyArrayObject*)theta)  *100  +
+                   PyArray_NDIM((PyArrayObject*)phi)    *10   +
+                   PyArray_NDIM((PyArrayObject*)psi)    *1;
+  if (ndim_check != 2111){
+    PyErr_Format(PyExc_ValueError, "input dimension error.");
+    return nullptr;
+  }
+  if (PyArray_DIMS((PyArrayObject*)map_arr)[0] != 6){
+    PyErr_Format(PyExc_ValueError, "maps should have shape (6, npix).");
+    return nullptr;
+  }
 
   // For Beam
   double dg,dx,dy,s,ds,dp,dc;
-  PyArg_ParseTuple(beam_parameters, "ddddddd", &dg, &dx, &dy, &s, &ds, &dp, &dc);
+  success = parse_beam_para(beam_parameters, dg, dx, dy, s, ds, dp, dc);
+  if(!success){
+    PyErr_Format(PyExc_TypeError, "missing beam parameter");
+    return nullptr;
+  }
   double g1 = 1+dg/2, g2 = 1-dg/2;
   double x1 = dx/2, x2 = -dx/2;
   double y1 = dy/2, y2 = -dy/2;
@@ -102,23 +170,28 @@ PyObject *deprojtod(PyObject *self, PyObject *args)
 
   Beam b1({g1,x1,y1,s1,p1,c1}, false), b2({g2, x2, y2, s2, p2, c2}, false);
 
+  PyObject *new_map_arr = PyArray_FROM_OTF(map_arr, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+  PyObject *new_theta   = PyArray_FROM_OTF(theta  , NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+  PyObject *new_phi     = PyArray_FROM_OTF(phi    , NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+  PyObject *new_psi     = PyArray_FROM_OTF(psi    , NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+
   // Data Access
   // Map
-  npy_intp npix = PyArray_Size(map_arr) / 6;
-  double *s_map   = (double *)PyArray_GETPTR2((PyArrayObject*)map_arr, 0, 0);
-  double *dt_map  = (double *)PyArray_GETPTR2((PyArrayObject*)map_arr, 1, 0);
-  double *dp_map  = (double *)PyArray_GETPTR2((PyArrayObject*)map_arr, 2, 0);
-  double *dtt_map = (double *)PyArray_GETPTR2((PyArrayObject*)map_arr, 3, 0);
-  double *dpp_map = (double *)PyArray_GETPTR2((PyArrayObject*)map_arr, 4, 0);
-  double *dtp_map = (double *)PyArray_GETPTR2((PyArrayObject*)map_arr, 5, 0);
+  npy_intp npix = get_map_npix((PyArrayObject*)map_arr);
+  double *s_map   = (double *)PyArray_GETPTR2((PyArrayObject*)new_map_arr, 0, 0);
+  double *dt_map  = (double *)PyArray_GETPTR2((PyArrayObject*)new_map_arr, 1, 0);
+  double *dp_map  = (double *)PyArray_GETPTR2((PyArrayObject*)new_map_arr, 2, 0);
+  double *dtt_map = (double *)PyArray_GETPTR2((PyArrayObject*)new_map_arr, 3, 0);
+  double *dpp_map = (double *)PyArray_GETPTR2((PyArrayObject*)new_map_arr, 4, 0);
+  double *dtp_map = (double *)PyArray_GETPTR2((PyArrayObject*)new_map_arr, 5, 0);
 
   DerivTMaps maps = {s_map, dt_map, dp_map, dtt_map, dpp_map, dtp_map, (int)npix};
 
   // Scan
   npy_intp nsample = PyArray_Size(theta);
-  double *p_theta = (double *)PyArray_GETPTR1((PyArrayObject*)theta, 0);
-  double *p_phi= (double *)PyArray_GETPTR1((PyArrayObject*)phi, 0);
-  double *p_psi = (double *)PyArray_GETPTR1((PyArrayObject*)psi, 0);
+  double *p_theta  = (double *)PyArray_GETPTR1((PyArrayObject*)new_theta , 0);
+  double *p_phi    = (double *)PyArray_GETPTR1((PyArrayObject*)new_phi   , 0);
+  double *p_psi    = (double *)PyArray_GETPTR1((PyArrayObject*)new_psi   , 0);
 
   // Do convolve;
   double *read_out = template_tod(b1, b2, maps, nsample, p_theta, p_phi, p_psi);
@@ -129,5 +202,10 @@ PyObject *deprojtod(PyObject *self, PyObject *args)
   tod_array = PyArray_SimpleNewFromData(2, ndims, NPY_FLOAT64, (void *)read_out);
   PyArrayObject* temp = (PyArrayObject*) tod_array;
   PyArray_ENABLEFLAGS(temp, NPY_ARRAY_OWNDATA);
+
+  Py_DECREF(new_map_arr);
+  Py_DECREF(new_theta);
+  Py_DECREF(new_phi);
+  Py_DECREF(new_psi);
   return tod_array;
 }

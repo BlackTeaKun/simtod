@@ -42,6 +42,7 @@ int MapMaking::add_Scan(const Scan_data &scan)
 
     // For Hitmap
     hitmap(Eigen::all, idx).array() += 1;
+
     if(scan.scanonly){
         return 0;
     }
