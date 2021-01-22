@@ -14,15 +14,10 @@
 #include "convolve.hpp"
 #include "helper.hpp"
 
-#define ArrayCheck(o) Py_TYPE(o)==&PyArray_Type
-
-
 void test_speed();
 
 PyObject *simtod(PyObject *self, PyObject *args)
 {
-  //PyErr_Format(PyExc_TypeError, "errrrrr");
-  //return nullptr;
   PyObject *beam_parameters;
   PyObject *map_arr;
   PyObject *theta, *phi, *psi;
@@ -30,7 +25,7 @@ PyObject *simtod(PyObject *self, PyObject *args)
   if (!success){
     return nullptr;
   }
-  bool is_all_npyarray = ArrayCheck(map_arr) && ArrayCheck(theta) && ArrayCheck(phi) && ArrayCheck(psi);
+  bool is_all_npyarray = is_all_arrayobj(map_arr, theta, phi, psi);
   if (!is_all_npyarray){
     PyErr_Format(PyExc_TypeError, "The input map, theta, phi, psi must be numpy.ndarray object.");
     return nullptr;

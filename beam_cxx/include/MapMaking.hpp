@@ -17,7 +17,7 @@ struct Scan_data{
     theta   = _theta;
     phi     = _phi  ;
     psi     = _psi  ;
-    if((tod1 == nullptr) || (tod2 == nullptr) || (psi == nullptr)){
+    if((tod1 == nullptr) && (tod2 == nullptr)){
       scanonly = true;
     }
     else{
@@ -32,19 +32,18 @@ struct Scan_data{
 
 class MapMaking{
 public:
-  using _eigen_type = 
+  using RowMajorDM = 
     Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-  using _eigen_int_type = 
-    Eigen::Matrix<int32_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-  MapMaking(int _nside);
+  MapMaking(int _nside, bool = false);
   ~MapMaking();
   int add_Scan(const Scan_data &);
-  _eigen_type     get_map();
-  _eigen_int_type get_hitmap();
+  RowMajorDM         get_map();
+  Eigen::RowVectorXi get_hitmap();
+  bool is_complex;
 private:
   int nside, npix;
-  _eigen_int_type hitmap;
-  _eigen_type     Tmap;
+  Eigen::RowVectorXi hitmap;
+  Eigen::MatrixXd    Tmap;
 
   //least square b=(X@X.T)^{-1}@X.T@y
   std::vector<Eigen::Matrix2d, Eigen::aligned_allocator<Eigen::Matrix2d>> x_xt;
