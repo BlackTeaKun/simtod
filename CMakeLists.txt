@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.7)
 project(simtod)
 
 set (TOP_DIR ${CMAKE_CURRENT_LIST_DIR})
-set (CMAKE_CXX_FLAGS "-std=c++11 -march=native -Og -g" CACHE STRING "Set C++ Compiler Flags" FORCE)
+set (CMAKE_CXX_FLAGS "-std=c++11 -march=native" CACHE STRING "Set C++ Compiler Flags" FORCE)
 set (LDFLAG "")
 
 

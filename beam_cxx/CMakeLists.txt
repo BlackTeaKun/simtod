@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.7)
 project(convolve)
 
-set (CMAKE_CXX_FLAGS "-std=c++11 -march=native -Og -g" CACHE STRING "Set C++ Compiler Flags" FORCE)
+set (CMAKE_CXX_FLAGS "-std=c++11 -march=native" CACHE STRING "Set C++ Compiler Flags" FORCE)
 set (LDFLAG "")
 
 if(${CMAKE_CXX_COMPILER_ID} MATCHES "[a-zA-Z]*Clang")
@@ -26,11 +26,11 @@ endif()
 
 message(${CMAKE_CXX_FLAGS})
 
-add_library(convolve SHARED
+add_library(convolve STATIC
     src/Beam.cxx
     src/convolve.cxx
 )
-add_library(mapmaking SHARED
+add_library(mapmaking STATIC
     src/MapMaking.cxx
 )
 link_directories ( convolve

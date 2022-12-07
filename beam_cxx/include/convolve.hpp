@@ -11,3 +11,7 @@ double *convolve(const Beam &b1, const Beam &b2, size_t npix, double *p_map, siz
 
 double *template_tod(const Beam &b1, const Beam &b2, const DerivTMaps &maps, size_t nsample,
     double *p_theta, double *p_phi, double *p_psi);
+
+
+double *template_tod_interp(const Beam &b1, const Beam &b2, const DerivTMaps &maps, size_t nsample,
+    double *p_theta, double *p_phi, double *p_psi);

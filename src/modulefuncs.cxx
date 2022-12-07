@@ -114,7 +114,9 @@ PyObject *simtod(PyObject *self, PyObject *args)
   return tod_array;
 }
 
-PyObject *deprojtod(PyObject *self, PyObject *args)
+using funcptr = double *(const Beam &, const Beam &, const DerivTMaps&, size_t, double *, double *, double *);
+
+PyObject *__deprojtod_helper(PyObject *self, PyObject *args, funcptr func)
 {
   PyObject *beam_parameters;
   PyObject *map_arr;
@@ -189,7 +191,7 @@ PyObject *deprojtod(PyObject *self, PyObject *args)
   double *p_psi    = (double *)PyArray_GETPTR1((PyArrayObject*)new_psi   , 0);
 
   // Do convolve;
-  double *read_out = template_tod(b1, b2, maps, nsample, p_theta, p_phi, p_psi);
+  double *read_out = func(b1, b2, maps, nsample, p_theta, p_phi, p_psi);
 
 
   PyObject *tod_array = nullptr;
@@ -203,4 +205,12 @@ PyObject *deprojtod(PyObject *self, PyObject *args)
   Py_DECREF(new_phi);
   Py_DECREF(new_psi);
   return tod_array;
+}
+
+PyObject *deprojtod(PyObject *self, PyObject *args){
+    return __deprojtod_helper(self, args, template_tod);
+}
+
+PyObject *deprojtod_interp(PyObject *self, PyObject *args){
+    return __deprojtod_helper(self, args, template_tod_interp);
 }

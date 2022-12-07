@@ -65,7 +65,7 @@ double *convolve(const Beam &b1, const Beam &b2, size_t npix, double *p_map, siz
     //map_wrapper(queried_pix) = pixel_coef_1 - pixel_coef_2;
 
 
-    // for tods 
+    // for tods
     map_tod(0,i) = (map_wrapper(queried_pix).array() * pixel_coef_1.array()).sum();
     map_tod(1,i) = (map_wrapper(queried_pix).array() * pixel_coef_2.array()).sum();
 
@@ -127,7 +127,7 @@ double *template_tod(const Beam &b1, const Beam &b2, const DerivTMaps &maps, siz
   // gain
   map_tod += g_vector * smoothed_map(idx).matrix().transpose();
 
-  // beam width 
+  // beam width
   Eigen::Vector2d delta_s = s_vector.array() - s_bar;
   map_tod += delta_s * s_bar * (partial_tt(idx) + partial_pp(idx)).matrix().transpose();
 
@@ -136,15 +136,15 @@ double *template_tod(const Beam &b1, const Beam &b2, const DerivTMaps &maps, siz
   map_tod += y_vector * (-cospsi*partial_t(idx) - sinpsi*partial_p(idx)).matrix().transpose();
 
   // Quadrupole
-  Eigen::ArrayXd partial_xx = cospsi*cospsi*partial_pp(idx) + 
+  Eigen::ArrayXd partial_xx = cospsi*cospsi*partial_pp(idx) +
                               sinpsi*sinpsi*partial_tt(idx) -
                               sin2psi*partial_tp(idx);
-  Eigen::ArrayXd partial_yy = sinpsi*sinpsi*partial_pp(idx) + 
+  Eigen::ArrayXd partial_yy = sinpsi*sinpsi*partial_pp(idx) +
                               cospsi*cospsi*partial_tt(idx) +
                               sin2psi*partial_tp(idx);
   Eigen::ArrayXd partial_xy = 0.5*(
-                                sin2psi*(partial_tt(idx)-partial_pp(idx)) - 
-                                cos2psi*partial_tp(idx)
+                                sin2psi*(partial_tt(idx)-partial_pp(idx)) -
+                                2*cos2psi*partial_tp(idx)
                               );
 
   Eigen::ArrayXd p_xx_minus_p_yy = partial_xx - partial_yy;
@@ -152,42 +152,111 @@ double *template_tod(const Beam &b1, const Beam &b2, const DerivTMaps &maps, siz
   map_tod += 0.5*p_vector * s_bar*s_bar * p_xx_minus_p_yy.matrix().transpose();
   map_tod +=     c_vector * s_bar*s_bar * partial_xy.matrix().transpose();
 
-// #pragma omp parallel for schedule(dynamic, 1)
-  // for(int i = 0; i < nsample; ++i){
-    // int cur_idx = idx[i];
-    // double cur_psi = p_psi[i];
-    // double cospsi = std::cos(cur_psi), sinpsi = std::sin(cur_psi);
-    // double cos2psi = std::cos(2*cur_psi), sin2psi = std::sin(2*cur_psi);
-    // for(int j = 0; j < 2; ++j){
-      // // Monopole factor
-      // // gain is exactily the variable g; 
-      // double tod_g = g[j] * maps.s_tmap[cur_idx];
-
-      // // beam width
-      // double tod_s = (s[j] - s_bar) * s_bar * (maps.dtt_s_tmap[cur_idx] + maps.dpp_s_tmap[cur_idx]);
-
-      // // dipole
-      // double tod_x = x[j] * ( cospsi * maps.dp_s_tmap[cur_idx] - sinpsi * maps.dt_s_tmap[cur_idx]);
-      // double tod_y = y[j] * (-cospsi * maps.dt_s_tmap[cur_idx] - sinpsi * maps.dp_s_tmap[cur_idx]);
-
-      // // quadrupole
-      // double partial_xx = cospsi*cospsi*maps.dpp_s_tmap[cur_idx] +
-                          // sinpsi*sinpsi*maps.dtt_s_tmap[cur_idx] -
-                          // sin2psi*maps.dtp_s_tmap[cur_idx];
-      // double partial_yy = sinpsi*sinpsi*maps.dpp_s_tmap[cur_idx] +
-                          // cospsi*cospsi*maps.dtt_s_tmap[cur_idx] +
-                          // sin2psi*maps.dtp_s_tmap[cur_idx];
-
-      // double p_xx_minus_p_yy = partial_xx - partial_yy;
-
-      // double tod_p = s_bar * s_bar * p[j] * p_xx_minus_p_yy / 2;
-      // map_tod(j, i) = tod_g + tod_s + tod_x + tod_y + tod_p;
-    // }
-  // }
-
   return tod;
 }
 
+double *template_tod_interp(const Beam &b1, const Beam &b2, const DerivTMaps &maps, size_t nsample,
+    double *p_theta, double *p_phi, double *p_psi){
+
+  double g[] = {b1.g, b2.g};
+  double x[] = {b1.x, b2.x};
+  double y[] = {b1.y, b2.y};
+  double s[] = {b1.s, b2.s};
+  double p[] = {b1.p, b2.p};
+  double c[] = {b1.c, b2.c};
+  double s_bar = (b1.s + b2.s)/2;
+  Eigen::Vector2d g_vector(b1.g, b2.g);
+  Eigen::Vector2d x_vector(b1.x, b2.x);
+  Eigen::Vector2d y_vector(b1.y, b2.y);
+  Eigen::Vector2d s_vector(b1.s, b2.s);
+  Eigen::Vector2d p_vector(b1.p, b2.p);
+  Eigen::Vector2d c_vector(b1.c, b2.c);
+
+  T_Healpix_Base<int> hb;
+  int nside = hb.npix2nside(maps.npix);
+  hb.SetNside(nside, RING);
+
+  double *tod = new double[2*nsample];
+  Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> map_tod(tod, 2, nsample);
+  map_tod.setZero();
+
+  using wrapper_type = Eigen::Map<Eigen::ArrayXd>;
+  wrapper_type partial_t(maps.dt_s_tmap, maps.npix);
+  wrapper_type partial_p(maps.dp_s_tmap, maps.npix);
+  wrapper_type partial_tt(maps.dtt_s_tmap, maps.npix);
+  wrapper_type partial_pp(maps.dpp_s_tmap, maps.npix);
+  wrapper_type partial_tp(maps.dtp_s_tmap, maps.npix);
+  wrapper_type smoothed_map(maps.s_tmap, maps.npix);
+
+  wrapper_type psi_vector(p_psi, nsample);
+  Eigen::ArrayXd cospsi  = psi_vector.array().cos();
+  Eigen::ArrayXd sinpsi  = psi_vector.array().sin();
+  Eigen::ArrayXd cos2psi = (psi_vector * 2).array().cos();
+  Eigen::ArrayXd sin2psi = (psi_vector * 2).array().sin();
+
+  Eigen::ArrayXd smoothed_map_interp(nsample);
+  Eigen::ArrayXd partial_t_interp(nsample);
+  Eigen::ArrayXd partial_p_interp(nsample);
+  Eigen::ArrayXd partial_tt_interp(nsample);
+  Eigen::ArrayXd partial_pp_interp(nsample);
+  Eigen::ArrayXd partial_tp_interp(nsample);
+  std::vector<int> idx(nsample);
+#pragma omp parallel for schedule(dynamic, 1)
+  for(int i = 0; i < nsample; ++i){
+    pointing ptg(p_theta[i], p_phi[i]);
+    fix_arr<int, 4> neighbours_idx;
+    fix_arr<double, 4> weight;
+    hb.get_interpol(ptg, neighbours_idx, weight);
+
+
+    Eigen::Array4d weight_arr(weight[0], weight[1], weight[2], weight[3]);
+    Eigen::Array4i neighbours_idx_arr(neighbours_idx[0],neighbours_idx[1],neighbours_idx[2],neighbours_idx[3]);
+
+    smoothed_map_interp(i) = (smoothed_map(neighbours_idx_arr).array()*weight_arr).sum();
+    partial_t_interp(i)    = (partial_t(neighbours_idx_arr).array()*weight_arr).sum();
+    partial_p_interp(i)    = (partial_p(neighbours_idx_arr).array()*weight_arr).sum();
+    partial_tt_interp(i)   = (partial_tt(neighbours_idx_arr).array()*weight_arr).sum();
+    partial_tp_interp(i)   = (partial_tp(neighbours_idx_arr).array()*weight_arr).sum();
+    partial_pp_interp(i)   = (partial_pp(neighbours_idx_arr).array()*weight_arr).sum();
+
+
+    idx[i] = hb.ang2pix(ptg);
+  }
+
+
+
+
+  // Monopole
+  // gain
+  map_tod += g_vector * smoothed_map_interp.matrix().transpose();
+
+  // beam width
+  Eigen::Vector2d delta_s = s_vector.array() - s_bar;
+  map_tod += delta_s * s_bar * (partial_tt_interp + partial_pp_interp).matrix().transpose();
+
+  // Dipole
+  map_tod += x_vector * ( cospsi*partial_p_interp - sinpsi*partial_t_interp).matrix().transpose();
+  map_tod += y_vector * (-cospsi*partial_t_interp - sinpsi*partial_p_interp).matrix().transpose();
+
+  // Quadrupole
+  Eigen::ArrayXd partial_xx = cospsi*cospsi*partial_pp_interp +
+                              sinpsi*sinpsi*partial_tt_interp -
+                              sin2psi*partial_tp_interp;
+  Eigen::ArrayXd partial_yy = sinpsi*sinpsi*partial_pp_interp +
+                              cospsi*cospsi*partial_tt_interp +
+                              sin2psi*partial_tp_interp;
+  Eigen::ArrayXd partial_xy = 0.5*(
+                                sin2psi*(partial_tt_interp-partial_pp_interp) -
+                                2*cos2psi*partial_tp_interp
+                              );
+
+  Eigen::ArrayXd p_xx_minus_p_yy = partial_xx - partial_yy;
+
+  map_tod += 0.5*p_vector * s_bar*s_bar * p_xx_minus_p_yy.matrix().transpose();
+  map_tod +=     c_vector * s_bar*s_bar * partial_xy.matrix().transpose();
+
+  return tod;
+}
 
 void test_speed(){
   Eigen::initParallel();
